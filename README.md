@@ -24,7 +24,8 @@ Coding agents burn tokens and time on full-repo search ("where is X implemented?
 
 ```
 SKILL.md                        # the skill contract (for .trae/skills or .claude/skills)
-scripts/init_code_index.py      # scaffold + refresh-exports (Python 3, zero deps)
+references/maintenance.md       # deep rules: extraction, config keys, CI wiring
+scripts/init_code_index.py      # scaffold / add-missing / refresh-exports / deps / install-hook
 scripts/check_code_index.py     # drift audit
 .code-index.json                # per-repo config, created by `init` (lives in YOUR repo)
 ```
@@ -33,6 +34,7 @@ scripts/check_code_index.py     # drift audit
 
 ```bash
 # 1. In your repo root: scaffold config + indexes for your source dirs
+#    (export + deps columns are auto-extracted; 职责 left as TODO)
 python3 scripts/init_code_index.py init --dirs src packages/core/src services/api/app
 
 # 2. Fill the TODO responsibility cells (one line per file) — the semantic part is human/AI work.
@@ -40,6 +42,15 @@ python3 scripts/init_code_index.py init --dirs src packages/core/src services/ap
 
 # 3. Audit — run at the end of every code task
 python3 scripts/check_code_index.py
+```
+
+## Day-2 commands
+
+```bash
+python3 scripts/init_code_index.py add-missing       # new files → TODO rows (agent fills semantics after)
+python3 scripts/init_code_index.py refresh-exports   # re-sync export+deps columns only, 职责 untouched
+python3 scripts/init_code_index.py deps              # dump import graph JSON (feeds router's dep diagram)
+python3 scripts/init_code_index.py install-hook      # pre-commit: source change w/o index change → blocked
 ```
 
 Install the skill so your agent picks it up automatically:

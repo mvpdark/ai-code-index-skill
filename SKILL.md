@@ -1,89 +1,41 @@
 ---
 name: "code-index-sync"
-description: "Generate and maintain per-feature AI code indexes (router md + sub-index md), auto-synced on any source file add/rename/delete. Invoke when .code-index.json exists or user wants a code index."
+description: "Generate and maintain per-feature AI code indexes (router md + sub-index md), auto-synced on any source file add/rename/delete. Invoke when .code-index.json exists or user wants a code index for a repo."
 ---
 
 # Code Index Sync
 
-Maintain an **AI-readable code index** so coding agents can locate files by reading a few small markdown tables instead of searching the whole repo. The index is split by feature/module: one router (`docs/code-index.md`) plus per-area sub-indexes (`docs/index/<area>.md`). Each row = file path → one-line responsibility → key exports.
+Maintain an **AI-readable code index** so coding agents locate files by reading small markdown tables instead of searching the whole repo. Layout: one router (`docs/code-index.md`) + per-area sub-indexes (`docs/index/<area>.md`). Each row = file → one-line responsibility → key exports → deps (export/deps columns auto-extracted; responsibility is the only human/AI-written cell).
 
-## Why this exists
+## Core contract (MANDATORY)
 
-- Full-repo grep/glob per task wastes tokens and time; a curated index answers "where is X" in one read.
-- Semantic notes (responsibility, dependency direction, conventions) cannot be auto-generated — but **drift detection and export extraction can**. This skill automates the mechanical parts and forces the agent to maintain the semantic parts.
+Whenever a task **creates, renames, moves, or deletes** any managed source file — including files you just generated — before finishing:
 
-## Layout
+1. Run `python3 scripts/init_code_index.py add-missing` (auto-appends TODO rows with exports+deps for unregistered files), then replace each `TODO` responsibility cell with a one-line description and move the row out of `## 待归类` into the right section. Deleted/renamed files: remove/fix their rows.
+2. New area or new sub-index file → add a row to the router's task-routing table.
+3. Run `python3 scripts/check_code_index.py` — must exit 0. Non-zero = task NOT done.
 
-```
-.code-index.json          # config: managed dirs, extensions, line budget
-docs/code-index.md        # router: task routing table + top-level structure + dependency direction
-docs/index/<area>.md      # one sub-index per managed area
-scripts/check_code_index.py    # drift audit (coverage / stale refs / line budget)
-scripts/init_code_index.py     # scaffold + refresh-exports
-```
+**Failure paths:** audit fails 3× in a row on the same error → stop and ask the user; don't rewrite the index to trick the checker. Index edited by a concurrent task → re-run `add-missing` + audit before delivering. Never delete a stale row by editing the checker's rules.
 
-## Core contract (MANDATORY for the agent)
-
-Whenever a task **creates, renames, moves, or deletes** any source file under a managed dir — including files the agent itself just generated (new components, new modules, split-off files) — in the SAME task, before finishing:
-
-1. Update the matching `docs/index/<area>.md`: add/remove/fix the row (path, one-line responsibility, key exports).
-2. If a new area/dir appeared, add a row to the router's task-routing table.
-3. Run `python3 <skill>/scripts/check_code_index.py` — it must exit 0. Non-zero = index drift = task NOT done; fix and re-run.
-
-Never deliver code changes that leave the index stale. The audit script is the hard gate.
-
-## Workflows
-
-### First-time setup (no `.code-index.json`)
+## Commands
 
 ```bash
-python3 scripts/init_code_index.py init \
-  --dirs packages/core/src packages/app-web/src services/api/app
+python3 scripts/init_code_index.py init --dirs src/core services/api/app   # first-time scaffold
+python3 scripts/init_code_index.py add-missing                             # register new files as TODO rows
+python3 scripts/init_code_index.py refresh-exports                         # re-sync export+deps columns only
+python3 scripts/init_code_index.py deps                                    # dump import graph JSON (for router diagram)
+python3 scripts/init_code_index.py install-hook                            # pre-commit gate: source change w/o index change → blocked
+python3 scripts/check_code_index.py                                        # drift audit: coverage / stale refs / line budget
 ```
 
-This writes `.code-index.json`, generates sub-indexes grouped by directory (one table section per sub-folder), auto-extracts key exports per file, and leaves `职责` cells as `TODO` for the agent/human to fill with one-line semantics. Then ask the AI (or hand-edit) to replace every TODO, and add the router's dependency-direction notes.
+Scripts are zero-dependency Python 3; they locate the repo root by walking up from cwd for `.code-index.json`.
 
-### Refresh key exports (mechanical column, fully automated)
-
-```bash
-python3 scripts/init_code_index.py refresh-exports
-```
-
-Re-parses every indexed source file and rewrites only the `关键导出` column of existing table rows. Run this after refactors that rename exports, or periodically. `职责` is never touched.
-
-### Audit (run at the end of every code task)
-
-```bash
-python3 scripts/check_code_index.py
-```
-
-Checks: (1) every managed non-test source file is registered in some sub-index; (2) every code filename referenced in the index actually exists (no stale rows); (3) no managed source file exceeds `max_lines` (default 250 — split it). Exit 1 with a per-file report on any failure.
-
-## Extracted-export rules
-
-- TS/TSX: `export function/const/class/interface/type/enum NAME`, plus names inside `export { a, b }`.
-- Python: top-level `def`/`class` (leading-underscore skipped).
-- CSS and other files: cell set to `-`.
-- Test files (`*.test.ts(x)`, `test_*.py`, `conftest.py`, `__tests__/`) are exempt from coverage/line checks and are described at directory level in the index.
-
-## Config reference (`.code-index.json`)
-
-```json
-{
-  "managed_dirs": ["packages/core/src", "services/api/app"],
-  "managed_files": ["packages/app-web/vite.config.ts"],
-  "index_dir": "docs/index",
-  "router": "docs/code-index.md",
-  "code_exts": [".ts", ".tsx", ".py", ".css"],
-  "max_lines": 250,
-  "skip_dirs": ["node_modules", ".venv", "dist", "build", "__pycache__"]
-}
-```
-
-## Sub-index row format
+## Row format
 
 ```markdown
-| `graph/normalize.ts` | Defensive normalization of any graph JSON | `normalizeGraph()` → `{graph, warnings}` |
+| `graph/normalize.ts` | Defensive normalization of any graph JSON | `normalizeGraph()` | `types.ts`, `coerce.ts` |
 ```
 
-Keep one line per file, responsibilities ≤ ~30 words. Group rows under `##` headings that mirror sub-folders or functional themes.
+Responsibilities ≤ ~30 words. Group rows under `##` headings mirroring sub-folders or functional themes. Test files are exempt from checks; describe them at directory level.
+
+Deeper rules (extraction regexes, config keys, CI wiring): read [references/maintenance.md](references/maintenance.md) only when needed.
