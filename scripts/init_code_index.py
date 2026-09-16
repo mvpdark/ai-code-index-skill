@@ -219,6 +219,32 @@ def cmd_init(root: Path, dirs: list[str], max_lines: int) -> int:
 # ---------- row rewriting (shared by refresh-exports / add-missing) ----------
 
 ROW_RE = re.compile(r"^\|\s*`([^`]*)`\s*\|")
+HEADER_RE = re.compile(r"^\|\s*文件\s*\|")
+SEP_RE = re.compile(r"^\|(?:\s*:?-{3,}:?\s*\|)+$")
+
+
+def fix_headers(lines: list[str]) -> list[str]:
+    """Pad 3-col headers/separators whose table rows already have 4 cols."""
+    out = list(lines)
+    i = 0
+    while i < len(out):
+        if HEADER_RE.match(out[i]):
+            j = i + 1
+            if j < len(out) and SEP_RE.match(out[j]):
+                k = j + 1
+                while k < len(out) and not ROW_RE.match(out[k]) and not HEADER_RE.match(out[k]):
+                    k += 1
+                if k < len(out) and ROW_RE.match(out[k]):
+                    h, s, d = split_row(out[i]), split_row(out[j]), split_row(out[k])
+                    if len(d) > len(h):
+                        out[i] = "| " + " | ".join(h + ["依赖"] * (len(d) - len(h))) + " |"
+                        out[j] = "| " + " | ".join(s + ["---"] * (len(d) - len(s))) + " |"
+                i = j
+            else:
+                i += 1
+        else:
+            i += 1
+    return out
 
 
 def split_row(line: str) -> list[str]:
@@ -259,6 +285,7 @@ def refresh_cells(root: Path, cfg: dict) -> tuple[int, int]:
                     line = "| " + " | ".join(cells) + " |"
                     d_changed += 1
             out.append(line)
+        out = fix_headers(out)
         f.write_text("\n".join(out) + "\n", encoding="utf-8")
     return e_changed, d_changed
 
