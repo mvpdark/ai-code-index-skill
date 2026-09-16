@@ -347,16 +347,24 @@ def cmd_deps(root: Path) -> int:
 
 HOOK = """#!/bin/sh
 # ai-code-index-skill pre-commit gate (installed by init_code_index.py install-hook)
-STAGED=$(git diff --cached --name-only)
-CODE=$(echo "$STAGED" | grep -E '\\.(ts|tsx|py|css|js|jsx)$' || true)
-DOC=$(echo "$STAGED" | grep -E '^(docs/index/|docs/code-index\\.md)' || true)
+CODE=$(git diff --cached --name-only | python3 -c '
+import json,sys,pathlib
+cfg=json.loads(pathlib.Path(".code-index.json").read_text())
+dirs=tuple(cfg.get("managed_dirs",[]))+tuple(cfg.get("managed_files",[]))
+exts=tuple(cfg.get("code_exts",[".ts",".tsx",".py",".css"]))
+for l in sys.stdin:
+    f=l.strip()
+    if f.startswith(".trae/skills/") or f.startswith(".claude/skills/"): continue
+    if f.endswith(exts) and any(f==d or f.startswith(d+"/") or pathlib.Path(f)==pathlib.Path(d) for d in dirs):
+        print(f)
+')
+DOC=$(git diff --cached --name-only | grep -E '^(docs/index/|docs/code-index\\.md)' || true)
 if [ -n "$CODE" ] && [ -z "$DOC" ]; then
-  echo "✗ 本次提交改动了源码但没有同步更新代码索引（docs/index/ 或 docs/code-index.md）"
+  echo "✗ 本次提交改动了受管源码但没有同步更新代码索引（docs/index/ 或 docs/code-index.md）"
   echo "  先运行: python3 scripts/init_code_index.py add-missing && 补职责列"
   exit 1
 fi
-python3 "$(dirname "$0")/../../scripts/check_code_index.py" 2>/dev/null \\
-  || python3 scripts/check_code_index.py
+python3 scripts/check_code_index.py
 """
 
 
