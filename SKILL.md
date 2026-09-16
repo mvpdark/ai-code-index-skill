@@ -1,9 +1,9 @@
 ---
-name: "code-index-sync"
+name: "ai-code-index-skill"
 description: "Generate and maintain per-feature AI code indexes (router md + sub-index md), auto-synced on any source file add/rename/delete. Invoke when .code-index.json exists or user wants a code index for a repo."
 ---
 
-# Code Index Sync
+# AI Code Index
 
 Maintain an **AI-readable code index** so coding agents locate files by reading small markdown tables instead of searching the whole repo. Layout: one router (`docs/code-index.md`) + per-area sub-indexes (`docs/index/<area>.md`). Each row = file → one-line responsibility → key exports → deps (export/deps columns auto-extracted; responsibility is the only human/AI-written cell).
 

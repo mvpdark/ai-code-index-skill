@@ -319,7 +319,7 @@ def cmd_deps(root: Path) -> int:
 # ---------- install-hook ----------
 
 HOOK = """#!/bin/sh
-# code-index-sync pre-commit gate (installed by init_code_index.py install-hook)
+# ai-code-index-skill pre-commit gate (installed by init_code_index.py install-hook)
 STAGED=$(git diff --cached --name-only)
 CODE=$(echo "$STAGED" | grep -E '\\.(ts|tsx|py|css|js|jsx)$' || true)
 DOC=$(echo "$STAGED" | grep -E '^(docs/index/|docs/code-index\\.md)' || true)
@@ -338,7 +338,7 @@ def cmd_install_hook(root: Path) -> int:
     if not hooks.is_dir():
         sys.exit("未找到 .git/hooks —— 请在 git 仓库根运行")
     target = hooks / "pre-commit"
-    if target.exists() and "code-index-sync" not in target.read_text(encoding="utf-8"):
+    if target.exists() and "ai-code-index-skill" not in target.read_text(encoding="utf-8"):
         sys.exit(f"已存在自定义 {target}，为避免覆盖请手动合并本 skill 的门禁逻辑")
     target.write_text(HOOK, encoding="utf-8")
     target.chmod(target.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)

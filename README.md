@@ -1,4 +1,4 @@
-# code-index-sync
+# ai-code-index-skill
 
 An [Agent Skill](https://agentskills.io) that gives coding agents a **maintained, AI-readable code index** for your repo — so they locate files by reading a few small markdown tables instead of grepping the whole codebase on every task.
 
@@ -6,7 +6,7 @@ An [Agent Skill](https://agentskills.io) that gives coding agents a **maintained
 
 Coding agents burn tokens and time on full-repo search ("where is X implemented?") on every single task. aider solves this with a dynamically computed repo map, but a dynamic map carries only *structure* (symbols, signatures) — never *semantics*: design intent, conventions, dependency rules, task routing. Hand-written docs carry semantics but silently rot.
 
-**code-index-sync keeps a small hand-curated semantic layer and automates everything derivable from source, with a hard audit gate so the semantic layer can't rot unnoticed.**
+**ai-code-index-skill keeps a small hand-curated semantic layer and automates everything derivable from source, with a hard audit gate so the semantic layer can't rot unnoticed.**
 
 ## What it does
 
@@ -57,9 +57,9 @@ Install the skill so your agent picks it up automatically:
 
 ```bash
 # Trae
-mkdir -p .trae/skills && cp -r <this-repo> .trae/skills/code-index-sync
+mkdir -p .trae/skills && cp -r <this-repo> .trae/skills/ai-code-index-skill
 # Claude Code
-mkdir -p .claude/skills && cp -r <this-repo> .claude/skills/code-index-sync
+mkdir -p .claude/skills && cp -r <this-repo> .claude/skills/ai-code-index-skill
 ```
 
 ## Keeping it fresh in CI / pre-commit
